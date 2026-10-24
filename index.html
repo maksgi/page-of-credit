@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Родительский Кредит</title>
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 550px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 20px; }
+        .stats { display: flex; flex-wrap: wrap; justify-content: space-around; margin: 20px 0; background: #edf2f7; padding: 15px; border-radius: 8px; gap: 10px; }
+        .stat-box { text-align: center; min-width: 100px; font-size: 13px; }
+        .stat-box span { display: block; font-size: 18px; font-weight: bold; margin-top: 5px; }
+        .debt { color: #e53e3e; }
+        .paid { color: #38a169; }
+        .chart-container { position: relative; margin: 20px auto; height: 240px; width: 240px; }
+        .zone { background: #f7fafc; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; }
+        .admin-zone { display: none; background: #e6fffa; border-color: #319795; }
+        input, select, button { padding: 10px; margin: 5px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+        input { width: 160px; }
+        button { background: #4a5568; color: white; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2d3748; }
+        .btn-send { background: #319795; }
+        .btn-send:hover { background: #234e52; }
+        .status-msg { font-size: 13px; margin-top: 8px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>👨‍👩‍👦 Трекер (Роль: <span id="current-role">Гость</span>)</h1>
+    
+    <div class="stats">
+        <div class="stat-box">Взял: <span id="total-borrowed">0 ₽</span></div>
+        <div class="stat-box">Штрафы: <span id="total-penalties" class="debt">0 ₽</span></div>
+        <div class="stat-box">Отдал: <span id="total-paid" class="paid">0 ₽</span></div>
+        <div class="stat-box">Долг: <span id="current-debt" class="debt">0 ₽</span></div>
+    </div>
+
+    <div class="chart-container"><canvas id="creditChart"></canvas></div>
+
+    <!-- Вход -->
+    <div id="auth-section" class="zone">
+        <h3>🔐 Авторизация</h3>
+        <input type="text" id="username" placeholder="Логин">
+        <input type="password" id="password" placeholder="Пароль">
+        <button onclick="login()">Войти</button>
+        <p id="auth-error" style="color: #e53e3e; display: none; margin: 5px 0 0 0; font-size: 12px;">Неверный логин или пароль</p>
+    </div>
+
+    <!-- Панель управления -->
+    <div id="admin-section" class="zone admin-zone">
+        <h3>🛠 Управление операциями</h3>
+        <select id="op-type">
+            <option value="Выплата">💸 Отдал (Выплата)</option>
+            <option value="Штраф">⚠️ Начислить штраф</option>
+            <option value="Кредит">💰 Взял еще (Кредит)</option>
+        </select>
+        <input type="number" id="op-amount" placeholder="Сумма" min="1">
+        <button class="btn-send" onclick="sendTransaction()">Внести в БД</button>
+        <div id="db-status" class="status-msg"></div>
+        <button style="background:none; color:#718096; font-size:11px; margin-top:10px; text-decoration:underline;" onclick="logout()">Выйти</button>
+    </div>
+</div>
+
+<script>
+    // ТВОЙ СКОПИРОВАННЫЙ URL ИЗ GOOGLE APPS SCRIPT
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbxPuDGh0eN-JtOINFMCuh8Ze7ix89M9NV-sEe1eQItlLavFJ8DPX4BBj0CPXI2_38s/exec';
+    
+    let savedPasswordForDb = ""; 
+    let chartInstance = null;
+
+    async function loadData() {
+        try {
+            const response = await fetch(scriptUrl);
+            const rows = await response.json();
+            let borrowed = 0, penalties = 0, paid = 0;
+            
+            rows.forEach(row => {
+                const type = row.type.toLowerCase().trim();
+                const amount = parseFloat(row.amount) || 0;
+                if (type === 'кредит') borrowed += amount;
+                if (type === 'штраф') penalties += amount;
+                if (type === 'выплата' || type === 'отдал') paid += amount;
+            });
+
+            const debt = (borrowed + penalties) - paid;
+            document.getElementById('total-borrowed').innerText = `${borrowed} ₽`;
+            document.getElementById('total-penalties').innerText = `${penalties} ₽`;
+            document.getElementById('total-paid').innerText = `${paid} ₽`;
+            document.getElementById('current-debt').innerText = `${debt} ₽`;
+
+            updateChart(paid, debt);
+        } catch (e) { console.error("Ошибка загрузки данных", e); }
+    }
+
+    function updateChart(paid, remaining) {
+        const ctx = document.getElementById('creditChart').getContext('2d');
+        if (chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Выплачено', 'Остаток'],
+                datasets: [{ data: [paid, remaining > 0 ? remaining : 0], backgroundColor: ['#38a169', '#e53e3e'] }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+    }
+
+    function login() {
+        const u = document.getElementById('username').value;
+        const p = document.getElementById('password').value;
+        const err = document.getElementById('auth-error');
+        
+        if (u === 'child' && p === '123') { 
+            err.style.display = 'none';
+            document.getElementById('current-role').innerText = "Просмотр";
+            document.getElementById('auth-section').style.display = 'none';
+        } else if (u === 'parents') { 
+            err.style.display = 'none';
+            savedPasswordForDb = p; 
+            document.getElementById('current-role').innerText = "Редактирование";
+            document.getElementById('auth-section').style.display = 'none';
+            document.getElementById('admin-section').style.display = 'block';
+        } else { err.style.display = 'block'; }
+    }
+
+    async function sendTransaction() {
+        const type = document.getElementById('op-type').value;
+        const amount = document.getElementById('op-amount').value;
+        const statusDiv = document.getElementById('db-status');
+        if(!amount || amount <= 0) return alert("Введите сумму");
+
+        statusDiv.style.color = "#3182ce";
+        statusDiv.innerText = "Отправка в Google Таблицу...";
+
+        try {
+            await fetch(scriptUrl, {
+                method: 'POST',
+                mode: 'no-cors', 
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: savedPasswordForDb, type: type, amount: amount })
+            });
+            
+            statusDiv.style.color = "#38a169";
+            statusDiv.innerText = "Успешно отправлено! Данные обновятся через 2 сек...";
+            document.getElementById('op-amount').value = "";
+            setTimeout(() => { statusDiv.innerText = ""; loadData(); }, 2000);
+        } catch (err) {
+            statusDiv.style.color = "#e53e3e";
+            statusDiv.innerText = "Ошибка записи.";
+        }
+    }
+
+    function logout() {
+        savedPasswordForDb = "";
+        document.getElementById('current-role').innerText = "Гость";
+        document.getElementById('admin-section').style.display = 'none';
+        document.getElementById('auth-section').style.display = 'block';
+    }
+
+    loadData();
+</script>
+</body>
+</html>
