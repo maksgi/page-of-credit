@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Родительский Кредит</title>
+    <title>Родительский Кредит Трекер</title>
     <script src="https://jsdelivr.net"></script>
     <style>
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
@@ -14,7 +14,7 @@
         .stat-box span { display: block; font-size: 18px; font-weight: bold; margin-top: 5px; }
         .debt { color: #e53e3e; }
         .paid { color: #38a169; }
-        .chart-container { position: relative; margin: 20px auto; height: 240px; width: 240px; }
+        .chart-container { position: relative; margin: 20px auto; height: 260px; width: 100%; display: flex; justify-content: center; }
         .zone { background: #f7fafc; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; }
         .admin-zone { display: none; background: #e6fffa; border-color: #319795; }
         input, select, button { padding: 10px; margin: 5px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
@@ -24,6 +24,7 @@
         .btn-send { background: #319795; }
         .btn-send:hover { background: #234e52; }
         .status-msg { font-size: 13px; margin-top: 8px; font-weight: bold; }
+        .loading-overlay { color: #718096; font-size: 14px; text-align: center; margin: 10px 0; }
     </style>
 </head>
 <body>
@@ -31,11 +32,13 @@
 <div class="container">
     <h1>👨‍👩‍👦 Трекер (Роль: <span id="current-role">Гость</span>)</h1>
     
+    <div id="loading-info" class="loading-overlay">Загрузка данных из базы...</div>
+
     <div class="stats">
         <div class="stat-box">Взял: <span id="total-borrowed">0 ₽</span></div>
         <div class="stat-box">Штрафы: <span id="total-penalties" class="debt">0 ₽</span></div>
         <div class="stat-box">Отдал: <span id="total-paid" class="paid">0 ₽</span></div>
-        <div class="stat-box">Долг: <span id="current-debt" class="debt">0 ₽</span></div>
+        <div class="stat-box">К возврату: <span id="current-debt" class="debt">0 ₽</span></div>
     </div>
 
     <div class="chart-container"><canvas id="creditChart"></canvas></div>
@@ -45,13 +48,13 @@
         <h3>🔐 Авторизация</h3>
         <input type="text" id="username" placeholder="Логин">
         <input type="password" id="password" placeholder="Пароль">
-        <button onclick="login()">Войти</button>
+        <button id="login-btn" onclick="login()">Войти</button>
         <p id="auth-error" style="color: #e53e3e; display: none; margin: 5px 0 0 0; font-size: 12px;">Неверный логин или пароль</p>
     </div>
 
-    <!-- Панель управления -->
+    <!-- Панель изменения -->
     <div id="admin-section" class="zone admin-zone">
-        <h3>🛠 Управление операциями</h3>
+        <h3>🛠 Управление операциями (Родители)</h3>
         <select id="op-type">
             <option value="Выплата">💸 Отдал (Выплата)</option>
             <option value="Штраф">⚠️ Начислить штраф</option>
@@ -65,13 +68,13 @@
 </div>
 
 <script>
-    // ТВОЙ СКОПИРОВАННЫЙ URL ИЗ GOOGLE APPS SCRIPT
     const scriptUrl = 'https://script.google.com/macros/s/AKfycbxPuDGh0eN-JtOINFMCuh8Ze7ix89M9NV-sEe1eQItlLavFJ8DPX4BBj0CPXI2_38s/exec';
     
     let savedPasswordForDb = ""; 
     let chartInstance = null;
 
     async function loadData() {
+        document.getElementById('loading-info').style.display = 'block';
         try {
             const response = await fetch(scriptUrl);
             const rows = await response.json();
@@ -85,45 +88,67 @@
                 if (type === 'выплата' || type === 'отдал') paid += amount;
             });
 
-            const debt = (borrowed + penalties) - paid;
+            const currentDebt = (borrowed + penalties) - paid;
+            let remainingPenalties = currentDebt > 0 ? Math.min(penalties, currentDebt) : 0;
+            let remainingBaseDebt = currentDebt > 0 ? currentDebt - remainingPenalties : 0;
+
             document.getElementById('total-borrowed').innerText = `${borrowed} ₽`;
             document.getElementById('total-penalties').innerText = `${penalties} ₽`;
             document.getElementById('total-paid').innerText = `${paid} ₽`;
-            document.getElementById('current-debt').innerText = `${debt} ₽`;
+            document.getElementById('current-debt').innerText = `${currentDebt} ₽`;
 
-            updateChart(paid, debt);
-        } catch (e) { console.error("Ошибка загрузки данных", e); }
+            updateChart(paid, remainingBaseDebt, remainingPenalties);
+            document.getElementById('loading-info').style.display = 'none';
+        } catch (e) { 
+            console.error("Ошибка загрузки данных", e); 
+            document.getElementById('loading-info').innerText = "Ошибка обновления данных. Проверьте таблицу.";
+        }
     }
 
-    function updateChart(paid, remaining) {
+    function updateChart(paid, remainingBase, remainingPenalties) {
         const ctx = document.getElementById('creditChart').getContext('2d');
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Выплачено', 'Остаток'],
-                datasets: [{ data: [paid, remaining > 0 ? remaining : 0], backgroundColor: ['#38a169', '#e53e3e'] }]
+                labels: ['Уже выплачено', 'Чистый долг', 'Штрафы'],
+                datasets: [{ data: [paid, remainingBase, remainingPenalties], backgroundColor: ['#38a169', '#3182ce', '#e53e3e'] }]
             },
-            options: { responsive: true, maintainAspectRatio: false }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
         });
     }
 
-    function login() {
+    async function login() {
         const u = document.getElementById('username').value;
         const p = document.getElementById('password').value;
         const err = document.getElementById('auth-error');
+        const loginBtn = document.getElementById('login-btn');
         
-        if (u === 'child' && p === '123') { 
-            err.style.display = 'none';
-            document.getElementById('current-role').innerText = "Просмотр";
-            document.getElementById('auth-section').style.display = 'none';
-        } else if (u === 'parents') { 
-            err.style.display = 'none';
-            savedPasswordForDb = p; 
-            document.getElementById('current-role').innerText = "Редактирование";
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('admin-section').style.display = 'block';
-        } else { err.style.display = 'block'; }
+        loginBtn.disabled = true;
+        loginBtn.innerText = "Проверка...";
+        
+        try {
+            const response = await fetch(`${scriptUrl}?action=getAuth`);
+            const creds = await response.json();
+            
+            if (creds[u] && creds[u].toString() === p.toString()) {
+                err.style.display = 'none';
+                if (u === 'child') {
+                    document.getElementById('current-role').innerText = "Просмотр";
+                    document.getElementById('auth-section').style.display = 'none';
+                } else if (u === 'parents') {
+                    savedPasswordForDb = p; 
+                    document.getElementById('current-role').innerText = "Редактирование";
+                    document.getElementById('auth-section').style.display = 'none';
+                    document.getElementById('admin-section').style.display = 'block';
+                }
+            } else { err.style.display = 'block'; }
+        } catch(e) { 
+            alert("Ошибка авторизации. Убедитесь, что вы создали лист 'Доступы' в таблице."); 
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.innerText = "Войти";
+        }
     }
 
     async function sendTransaction() {
@@ -144,7 +169,7 @@
             });
             
             statusDiv.style.color = "#38a169";
-            statusDiv.innerText = "Успешно отправлено! Данные обновятся через 2 сек...";
+            statusDiv.innerText = "Успешно отправлено! Обновление через 2 сек...";
             document.getElementById('op-amount').value = "";
             setTimeout(() => { statusDiv.innerText = ""; loadData(); }, 2000);
         } catch (err) {
