@@ -1,223 +1,253 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Семейный Банк — Кредитный Трекер</title>
-    <!-- Используется стабильный глобальный зеркальный CDN -->
-    <script src="https://cloudflare.com"></script>
-    <style>
-        body { font-family: system-ui, -apple-system, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h1 { text-align: center; font-size: 20px; margin-bottom: 20px; }
-        .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; background: #edf2f7; padding: 12px; border-radius: 8px; }
-        .stat-box { text-align: center; font-size: 13px; padding: 6px; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-        .stat-box span { display: block; font-size: 16px; font-weight: bold; margin-top: 5px; }
-        .debt { color: #e53e3e; } .paid { color: #38a169; } .neutral { color: #3182ce; }
-        .chart-container { position: relative; margin: 20px auto; height: 260px; width: 100%; }
-        .zone { background: #f7fafc; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; }
-        .admin-zone { display: none; background: #e6fffa; border-color: #319795; }
-        input, select, button { padding: 10px; margin: 5px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
-        input[type="text"], input[type="password"], input[type="number"], select { width: calc(100% - 14px); max-width: 300px; }
-        button { background: #4a5568; color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.2s; }
-        button:hover { opacity: 0.9; }
-        .btn-send { background: #319795; width: calc(100% - 14px); max-width: 300px; }
-        #loading-info { text-align: center; font-size: 13px; color: #718096; margin-bottom: 10px; font-weight: 500; }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Семейный Банк — Кредитный Трекер</title>
+	<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+	<style>
+		body { font-family: system-ui, -apple-system, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+		.container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+		h1 { text-align: center; font-size: 20px; margin-bottom: 20px; }
+		.stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin: 15px 0; background: #edf2f7; padding: 12px; border-radius: 8px; }
+		.stat-box { text-align: center; font-size: 13px; padding: 6px; background: white; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+		.stat-box span { display: block; font-size: 16px; font-weight: bold; margin-top: 5px; }
+		.debt { color: #e53e3e; } .paid { color: #38a169; } .neutral { color: #3182ce; }
+		.chart-container { position: relative; margin: 20px auto; height: 260px; width: 100%; }
+		.zone { background: #f7fafc; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; }
+		.admin-zone { display: none; background: #e6fffa; border-color: #319795; }
+		input, select, button { padding: 10px; margin: 5px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
+		input[type="text"], input[type="password"], input[type="number"], select { width: calc(100% - 14px); max-width: 300px; }
+		button { background: #4a5568; color: white; border: none; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+		button:hover { opacity: 0.9; }
+		.btn-send { background: #319795; width: calc(100% - 14px); max-width: 300px; }
+		#loading-info { text-align: center; font-size: 13px; color: #718096; margin-bottom: 10px; font-weight: 500; }
+	</style>
 </head>
 <body>
 <div class="container">
-    <h1>👨‍👩‍👦 Трекер кредита (<span id="current-role">Гость</span>)</h1>
-    <div id="loading-info">🔄 Инициализация...</div>
-    
-    <div class="stats">
-        <div class="stat-box">Взял у родителей: <span id="total-borrowed" class="neutral">0 ₽</span></div>
-        <div class="stat-box">Сумма штрафов: <span id="total-penalties" class="debt">0 ₽</span></div>
-        <div class="stat-box">Всего отдал: <span id="total-paid" class="paid">0 ₽</span></div>
-        <div class="stat-box">Осталось вернуть: <span id="current-debt" class="debt">0 ₽</span></div>
-    </div>
-    
-    <div class="chart-container">
-        <canvas id="creditChart"></canvas>
-    </div>
-    
-    <!-- СЕКЦИЯ АВТОРИЗАЦИИ ПРОФИЛЕЙ -->
-    <div id="auth-section" class="zone">
-        <h3>🔐 Выберите профиль для входа</h3>
-        <input type="text" id="username" placeholder="Логин (child / parents)"><br>
-        <input type="password" id="password" placeholder="Пароль"><br>
-        <button onclick="login()">Войти в профиль</button>
-        <p id="auth-error" style="color: #e53e3e; display: none; margin: 8px 0 0 0; font-size: 13px;">Неверный логин или пароль</p>
-    </div>
-    
-    <!-- УПРАВЛЕНИЕ: ДОСТУПНО ТОЛЬКО ДЛЯ РОДИТЕЛЕЙ -->
-    <div id="admin-section" class="zone admin-zone">
-        <h3>🛠 Добавить операцию (Родители)</h3>
-        <select id="op-type">
-            <option value="Выплата">💸 Отдал (Выплата)</option>
-            <option value="Штраф">⚠️ Штраф</option>
-            <option value="Кредит">💰 Дополнительный Кредит</option>
-        </select><br>
-        <input type="number" id="op-amount" placeholder="Сумма в ₽" min="1"><br>
-        <button class="btn-send" onclick="sendTransaction()">Записать операцию</button>
-        <div id="db-status" style="font-size:13px; margin-top:8px; font-weight:bold;"></div>
-        <br>
-        <button style="background:none; color:#718096; font-size:12px; margin-top:10px; text-decoration:underline; border:none; cursor:pointer;" onclick="logout()">Сменить профиль</button>
-    </div>
-    
-    <!-- КНОПКА ВЫХОДА ДЛЯ РЕБЕНКА -->
-    <div id="child-exit-section" class="zone" style="display: none;">
-        <button style="background:none; color:#718096; font-size:12px; text-decoration:underline; border:none; cursor:pointer;" onclick="logout()">Сменить профиль</button>
-    </div>
+	<h1>👨‍👩‍👦 Трекер кредита (<span id="current-role">Гость</span>)</h1>
+	<div id="loading-info">🔄 Инициализация...</div>
+
+	<div class="stats">
+		<div class="stat-box">Взял у родителей: <span id="total-borrowed" class="neutral">0 ₽</span></div>
+		<div class="stat-box">Сумма штрафов: <span id="total-penalties" class="debt">0 ₽</span></div>
+		<div class="stat-box">Всего отдал: <span id="total-paid" class="paid">0 ₽</span></div>
+		<div class="stat-box">Осталось вернуть: <span id="current-debt" class="debt">0 ₽</span></div>
+	</div>
+
+	<div class="chart-container">
+		<canvas id="creditChart"></canvas>
+	</div>
+
+	<div id="auth-section" class="zone">
+		<h3>🔐 Вход в профиль</h3>
+		<input type="text" id="username" placeholder="Логин (child / parents)"><br>
+		<input type="password" id="password" placeholder="Пароль"><br>
+		<button onclick="login()">Войти</button>
+		<p id="auth-error" style="color: #e53e3e; display: none; margin: 8px 0 0 0; font-size: 13px;">Неверный логин или пароль</p>
+	</div>
+
+	<div id="admin-section" class="zone admin-zone">
+		<h3>🛠 Добавить операцию (Родители)</h3>
+		<select id="op-type">
+			<option value="Выплата">💸 Отдал (Выплата)</option>
+			<option value="Штраф">⚠️ Штраф</option>
+			<option value="Кредит">💰 Дополнительный Кредит</option>
+		</select><br>
+		<input type="number" id="op-amount" placeholder="Сумма в ₽" min="1"><br>
+		<button id="send-btn" class="btn-send" onclick="sendTransaction()">Записать операцию</button>
+		<div id="db-status" style="font-size:13px; margin-top:8px; font-weight:bold;"></div>
+		<br>
+		<button style="background:none; color:#718096; font-size:12px; margin-top:10px; text-decoration:underline; border:none; cursor:pointer;" onclick="logout()">Сменить профиль</button>
+	</div>
+
+	<div id="child-exit-section" class="zone" style="display: none;">
+		<button style="background:none; color:#718096; font-size:12px; text-decoration:underline; border:none; cursor:pointer;" onclick="logout()">Сменить профиль</button>
+	</div>
 </div>
 
 <script>
-    // ⚠️ ВНИМАНИЕ: Обязательно вставьте сюда вашу ссылку Web App URL из Google Apps Script!
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbxPuDGh0eN-JtOINFMCuh8Ze7ix89M9NV-sEe1eQItlLavFJ8DPX4BBj0CPXI2_38s/exec';
-    let chartInstance = null;
+	// ⚠️ ВСТАВЬ СЮДА URL ИЗ APPS SCRIPT (тот, что заканчивается на /exec)
+	const scriptUrl = 'ТВОЙ_URL_ИЗ_APPS_SCRIPT';
 
-    // Исправлено: жестко заданы дефолтные нули, чтобы избежать SyntaxError при загрузке страницы
-    function initChart() {
-        const ctx = document.getElementById('creditChart').getContext('2d');
-        chartInstance = new Chart(ctx, {
-            type: 'pie',
-            data: {
-                labels: ['Выплачено', 'Остаток основного долга', 'Из них штрафы'],
-                datasets: [{ 
-                    data:, // ИСПРАВЛЕНО: Теперь пустых мест нет, массив валиден
-                    backgroundColor: ['#38a169', '#3182ce', '#e53e3e'] 
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false, 
-                plugins: { 
-                    legend: { position: 'bottom' } 
-                } 
-            }
-        });
-    }
+	let chartInstance = null;
 
-    async function loadData() {
-        const loadingDiv = document.getElementById('loading-info');
-        loadingDiv.style.display = 'block';
-        loadingDiv.innerText = "🔄 Обновление данных из базы...";
-        
-        try {
-            const response = await fetch(scriptUrl);
-            if (!response.ok) throw new Error("Ошибка сети");
-            const rows = await response.json();
-            
-            let brwd = 0, pntl = 0, pd = 0;
-            rows.forEach(r => {
-                if(!r.type || !r.amount) return;
-                const t = r.type.toLowerCase().trim(); 
-                const a = parseFloat(r.amount) || 0;
-                
-                if (t === 'кредит') brwd += a; 
-                else if (t === 'штраф') pntl += a; 
-                else if (t === 'выплата' || t === 'отдал') pd += a;
-            });
-            
-            const cDebt = (brwd + pntl) - pd;
-            let displayDebt = cDebt > 0 ? cDebt : 0;
-            let displayPenalties = Math.min(pntl, displayDebt);
-            let displayBaseDebt = displayDebt - displayPenalties;
+	function initChart() {
+		const ctx = document.getElementById('creditChart').getContext('2d');
+		chartInstance = new Chart(ctx, {
+			type: 'pie',
+			data: {
+				labels: ['Выплачено', 'Остаток долга', 'Из них штрафы'],
+				datasets: [{
+					data: [0, 0, 0],
+					backgroundColor: ['#38a169', '#3182ce', '#e53e3e']
+				}]
+			},
+			options: {
+				responsive: true,
+				maintainAspectRatio: false,
+				plugins: { legend: { position: 'bottom' } }
+			}
+		});
+	}
 
-            document.getElementById('total-borrowed').innerText = brwd.toLocaleString() + ' ₽';
-            document.getElementById('total-penalties').innerText = pntl.toLocaleString() + ' ₽';
-            document.getElementById('total-paid').innerText = pd.toLocaleString() + ' ₽';
-            document.getElementById('current-debt').innerText = displayDebt.toLocaleString() + ' ₽';
-            
-            // Динамическое обновление секторов круговой диаграммы
-            chartInstance.data.datasets[0].data = [pd, displayBaseDebt, displayPenalties];
-            chartInstance.update();
-            
-            loadingDiv.style.display = 'none';
-        } catch (e) { 
-            console.error(e);
-            loadingDiv.innerText = "⚠️ Автономный режим (подключите Google Таблицу)."; 
-        }
-    }
+	async function loadData() {
+		const loadingDiv = document.getElementById('loading-info');
+		loadingDiv.style.display = 'block';
+		loadingDiv.innerText = "🔄 Обновление данных...";
 
-    // Авторизация учетных записей (child / parents)
-    function login() {
-        const u = document.getElementById('username').value.trim();
-        const p = document.getElementById('password').value.trim();
-        const err = document.getElementById('auth-error');
-        
-        if (!u || !p) return;
-        err.style.display = 'none';
-        
-        if (u === 'child' && p === '1234') {
-            document.getElementById('current-role').innerText = "Ребенок (Просмотр)";
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('admin-section').style.display = 'none';
-            document.getElementById('child-exit-section').style.display = 'block';
-            clearAuthFields();
-        } else if (u === 'parents' && p === '5678') {
-            document.getElementById('current-role').innerText = "Родители (Управление)";
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('admin-section').style.display = 'block';
-            document.getElementById('child-exit-section').style.display = 'none';
-            clearAuthFields();
-        } else { 
-            err.style.display = 'block'; 
-        }
-    }
+		try {
+			// Добавляем параметр времени, чтобы браузер не кэшировал старые данные
+			const response = await fetch(scriptUrl + '?t=' + Date.now());
+			if (!response.ok) throw new Error("Ошибка сети");
+			const rows = await response.json();
 
-    function clearAuthFields() {
-        document.getElementById('username').value = "";
-        document.getElementById('password').value = "";
-    }
+			let brwd = 0, pntl = 0, pd = 0;
+			rows.forEach(r => {
+				if (!r.type || !r.amount) return;
+				const t = String(r.type).toLowerCase().trim();
+				const a = parseFloat(r.amount) || 0;
 
-        async function sendTransaction() {
-        const t = document.getElementById('op-type').value; 
-        const a = document.getElementById('op-amount').value;
-        const div = document.getElementById('db-status'); 
-        
-        if(!a || a <= 0) return alert("Пожалуйста, введите корректную сумму.");
-        
-        div.style.color = "#3182ce"; 
-        div.innerText = "⏳ Сохранение в Google Таблицу...";
-        
-        try {
-            await fetch(scriptUrl, { 
-                method: 'POST', 
-                mode: 'no-cors', 
-                headers: { 'Content-Type': 'text/plain' }, 
-                body: JSON.stringify({ 
-                    action: "addTransaction", 
-                    type: t, 
-                    amount: Number(a) 
-                }) 
-            });
-            
-            div.style.color = "#38a169"; 
-            div.innerText = "✅ Запись сохранена! Обновление...";
-            document.getElementById('op-amount').value = ""; 
-            
-            setTimeout(() => { 
-                div.innerText = ""; 
-                loadData();
-            }, 1500); // Все скобки setTimeout теперь закрыты корректно
-        } catch (err) {
-            console.error(err);
-            div.style.color = "#e53e3e";
-            div.innerText = "❌ Ошибка при отправке.";
-        }
-    } // Функция sendTransaction успешно закрыта
+				if (t === 'кредит') brwd += a;
+				else if (t === 'штраф') pntl += a;
+				else if (t === 'выплата' || t === 'отдал') pd += a;
+			});
 
-    function logout() { 
-        document.getElementById('current-role').innerText = "Гость"; 
-        document.getElementById('admin-section').style.display = 'none'; 
-        document.getElementById('child-exit-section').style.display = 'none';
-        document.getElementById('auth-section').style.display = 'block'; 
-    }
+			const cDebt = (brwd + pntl) - pd;
+			const displayDebt = cDebt > 0 ? cDebt : 0;
+			const displayPenalties = Math.min(pntl, displayDebt);
+			const displayBaseDebt = displayDebt - displayPenalties;
 
-    // Инициализация при запуске страницы
-    initChart();
-    loadData();
+			document.getElementById('total-borrowed').innerText = brwd.toLocaleString('ru-RU') + ' ₽';
+			document.getElementById('total-penalties').innerText = pntl.toLocaleString('ru-RU') + ' ₽';
+			document.getElementById('total-paid').innerText = pd.toLocaleString('ru-RU') + ' ₽';
+			document.getElementById('current-debt').innerText = displayDebt.toLocaleString('ru-RU') + ' ₽';
+
+			chartInstance.data.datasets[0].data = [pd, displayBaseDebt, displayPenalties];
+			chartInstance.update();
+
+			loadingDiv.style.display = 'none';
+		} catch (e) {
+			console.error(e);
+			loadingDiv.innerText = "⚠️ Автономный режим (нет связи с таблицей).";
+		}
+	}
+
+	async function login() {
+		const u = document.getElementById('username').value.trim();
+		const p = document.getElementById('password').value.trim();
+		const err = document.getElementById('auth-error');
+		if (!u || !p) return;
+		err.style.display = 'none';
+
+		try {
+			// Отправляем логин и пароль на проверку в Google Script
+			const res = await fetch(scriptUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'text/plain' }, 
+				body: JSON.stringify({ action: 'login', username: u, password: p })
+			});
+			const data = await res.json();
+
+			if (!data.ok) { 
+				err.innerText = data.error || 'Неверный логин или пароль';
+				err.style.display = 'block'; 
+				return; 
+			}
+
+			// Сохраняем временный пропуск (токен) в браузере
+			sessionStorage.setItem('token', data.token);
+			sessionStorage.setItem('role', data.role);
+			
+			applyRole(data.role);
+			document.getElementById('username').value = "";
+			document.getElementById('password').value = "";
+		} catch (e) {
+			console.error(e);
+			err.innerText = 'Ошибка сети при входе';
+			err.style.display = 'block';
+		}
+	}
+
+	function applyRole(role) {
+		document.getElementById('current-role').innerText =
+			role === 'parents' ? 'Родители (Управление)' : 'Ребенок (Просмотр)';
+		document.getElementById('auth-section').style.display = 'none';
+		
+		if (role === 'parents') {
+			document.getElementById('admin-section').style.display = 'block';
+			document.getElementById('child-exit-section').style.display = 'none';
+		} else {
+			document.getElementById('admin-section').style.display = 'none';
+			document.getElementById('child-exit-section').style.display = 'block';
+		}
+	}
+
+	async function sendTransaction() {
+		const t = document.getElementById('op-type').value;
+		const a = document.getElementById('op-amount').value;
+		const div = document.getElementById('db-status');
+		const btn = document.getElementById('send-btn');
+
+		if (!a || a <= 0) return alert("Введите корректную сумму.");
+		const token = sessionStorage.getItem('token');
+		if (!token) { 
+			div.style.color = '#e53e3e'; 
+			div.innerText = '❌ Сессия истекла, войдите заново'; 
+			return; 
+		}
+
+		div.style.color = '#3182ce';
+		div.innerText = '⏳ Сохранение в таблицу...';
+		btn.disabled = true;
+
+		try {
+			const res = await fetch(scriptUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'text/plain' },
+				body: JSON.stringify({ action: 'addTransaction', token: token, type: t, amount: Number(a) })
+			});
+			const data = await res.json();
+			
+			if (!data.ok) throw new Error(data.error || 'Ошибка записи');
+
+			div.style.color = '#38a169';
+			div.innerText = '✅ Запись сохранена!';
+			document.getElementById('op-amount').value = '';
+			
+			setTimeout(() => { 
+				div.innerText = ''; 
+				btn.disabled = false; 
+				loadData(); 
+			}, 1200);
+		} catch (err) {
+			console.error(err);
+			div.style.color = '#e53e3e';
+			div.innerText = '❌ ' + err.message;
+			btn.disabled = false;
+		}
+	}
+
+	function logout() {
+		sessionStorage.removeItem('token');
+		sessionStorage.removeItem('role');
+		document.getElementById('current-role').innerText = 'Гость';
+		document.getElementById('admin-section').style.display = 'none';
+		document.getElementById('child-exit-section').style.display = 'none';
+		document.getElementById('auth-section').style.display = 'block';
+	}
+
+	function restoreSession() {
+		const role  = sessionStorage.getItem('role');
+		const token = sessionStorage.getItem('token');
+		if (role && token) applyRole(role);
+	}
+
+	// Запуск при загрузке страницы
+	initChart();
+	loadData();
+	restoreSession();
 </script>
 </body>
 </html>
