@@ -3,188 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Родительский Кредит Трекер</title>
+    <title>Трекер</title>
     <script src="https://jsdelivr.net"></script>
     <style>
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
-        .container { max-width: 550px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
-        h1 { text-align: center; color: #2c3e50; font-size: 22px; margin-bottom: 20px; }
-        .stats { display: flex; flex-wrap: wrap; justify-content: space-around; margin: 20px 0; background: #edf2f7; padding: 15px; border-radius: 8px; gap: 10px; }
-        .stat-box { text-align: center; min-width: 100px; font-size: 13px; }
-        .stat-box span { display: block; font-size: 18px; font-weight: bold; margin-top: 5px; }
-        .debt { color: #e53e3e; }
-        .paid { color: #38a169; }
-        .chart-container { position: relative; margin: 20px auto; height: 260px; width: 100%; display: flex; justify-content: center; }
-        .zone { background: #f7fafc; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 20px; text-align: center; }
+        body { font-family: system-ui, sans-serif; background: #f4f7f6; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1 { text-align: center; font-size: 20px; }
+        .stats { display: flex; flex-wrap: wrap; justify-content: space-around; margin: 15px 0; background: #edf2f7; padding: 12px; border-radius: 8px; gap: 10px; }
+        .stat-box { text-align: center; min-width: 90px; font-size: 12px; }
+        .stat-box span { display: block; font-size: 16px; font-weight: bold; margin-top: 5px; }
+        .debt { color: #e53e3e; } .paid { color: #38a169; }
+        .chart-container { position: relative; margin: 15px auto; height: 240px; width: 100%; display: flex; justify-content: center; }
+        .zone { background: #f7fafc; border: 1px dashed #cbd5e0; padding: 15px; border-radius: 8px; margin-top: 15px; text-align: center; }
         .admin-zone { display: none; background: #e6fffa; border-color: #319795; }
-        input, select, button { padding: 10px; margin: 5px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; box-sizing: border-box; }
-        input { width: 160px; }
+        input, select, button { padding: 8px; margin: 4px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 14px; }
         button { background: #4a5568; color: white; border: none; cursor: pointer; font-weight: bold; }
-        button:hover { background: #2d3748; }
         .btn-send { background: #319795; }
-        .btn-send:hover { background: #234e52; }
-        .status-msg { font-size: 13px; margin-top: 8px; font-weight: bold; }
-        .loading-overlay { color: #718096; font-size: 14px; text-align: center; margin: 10px 0; }
     </style>
 </head>
 <body>
-
 <div class="container">
     <h1>👨‍👩‍👦 Трекер (Роль: <span id="current-role">Гость</span>)</h1>
-    
-    <div id="loading-info" class="loading-overlay">Загрузка данных из базы...</div>
-
+    <div id="loading-info" style="text-align:center; font-size:13px; color:#718096;">Загрузка...</div>
     <div class="stats">
         <div class="stat-box">Взял: <span id="total-borrowed">0 ₽</span></div>
         <div class="stat-box">Штрафы: <span id="total-penalties" class="debt">0 ₽</span></div>
         <div class="stat-box">Отдал: <span id="total-paid" class="paid">0 ₽</span></div>
-        <div class="stat-box">К возврату: <span id="current-debt" class="debt">0 ₽</span></div>
+        <div class="stat-box">Долг: <span id="current-debt" class="debt">0 ₽</span></div>
     </div>
-
     <div class="chart-container"><canvas id="creditChart"></canvas></div>
-
-    <!-- Вход -->
     <div id="auth-section" class="zone">
         <h3>🔐 Авторизация</h3>
         <input type="text" id="username" placeholder="Логин">
         <input type="password" id="password" placeholder="Пароль">
         <button id="login-btn" onclick="login()">Войти</button>
-        <p id="auth-error" style="color: #e53e3e; display: none; margin: 5px 0 0 0; font-size: 12px;">Неверный логин или пароль</p>
+        <p id="auth-error" style="color: #e53e3e; display: none; margin: 5px 0 0 0; font-size: 12px;">Неверные данные</p>
     </div>
-
-    <!-- Панель изменения -->
     <div id="admin-section" class="zone admin-zone">
-        <h3>🛠 Управление операциями (Родители)</h3>
+        <h3>🛠 Управление (Родители)</h3>
         <select id="op-type">
             <option value="Выплата">💸 Отдал (Выплата)</option>
-            <option value="Штраф">⚠️ Начислить штраф</option>
-            <option value="Кредит">💰 Взял еще (Кредит)</option>
+            <option value="Штраф">⚠️ Штраф</option>
+            <option value="Кредит">💰 Кредит</option>
         </select>
         <input type="number" id="op-amount" placeholder="Сумма" min="1">
-        <button class="btn-send" onclick="sendTransaction()">Внести в БД</button>
-        <div id="db-status" class="status-msg"></div>
-        <button style="background:none; color:#718096; font-size:11px; margin-top:10px; text-decoration:underline;" onclick="logout()">Выйти</button>
+        <button class="btn-send" onclick="sendTransaction()">Записать</button>
+        <div id="db-status" style="font-size:12px; margin-top:5px; font-weight:bold;"></div>
+        <button style="background:none; color:#718096; font-size:11px; margin-top:10px; text-decoration:underline; border:none;" onclick="logout()">Выйти</button>
     </div>
 </div>
-
 <script>
-    const scriptUrl = 'https://script.google.com/macros/s/AKfycbxPuDGh0eN-JtOINFMCuh8Ze7ix89M9NV-sEe1eQItlLavFJ8DPX4BBj0CPXI2_38s/exec';
-    
-    let savedPasswordForDb = ""; 
-    let chartInstance = null;
+    const scriptUrl = 'https://google.com';
+    let savedPasswordForDb = ""; let chartInstance = null;
 
     async function loadData() {
         document.getElementById('loading-info').style.display = 'block';
         try {
             const response = await fetch(scriptUrl);
             const rows = await response.json();
-            let borrowed = 0, penalties = 0, paid = 0;
-            
-            rows.forEach(row => {
-                const type = row.type.toLowerCase().trim();
-                const amount = parseFloat(row.amount) || 0;
-                if (type === 'кредит') borrowed += amount;
-                if (type === 'штраф') penalties += amount;
-                if (type === 'выплата' || type === 'отдал') paid += amount;
+            let brwd = 0, pntl = 0, pd = 0;
+            rows.forEach(r => {
+                const t = r.type.toLowerCase().trim(); const a = parseFloat(r.amount) || 0;
+                if (t === 'кредит') brwd += a; if (t === 'штраф') pntl += a; if (t === 'выплата' || t === 'отдал') pd += a;
             });
-
-            const currentDebt = (borrowed + penalties) - paid;
-            let remainingPenalties = currentDebt > 0 ? Math.min(penalties, currentDebt) : 0;
-            let remainingBaseDebt = currentDebt > 0 ? currentDebt - remainingPenalties : 0;
-
-            document.getElementById('total-borrowed').innerText = `${borrowed} ₽`;
-            document.getElementById('total-penalties').innerText = `${penalties} ₽`;
-            document.getElementById('total-paid').innerText = `${paid} ₽`;
-            document.getElementById('current-debt').innerText = `${currentDebt} ₽`;
-
-            updateChart(paid, remainingBaseDebt, remainingPenalties);
+            const cDebt = (brwd + pntl) - pd;
+            let rPntl = cDebt > 0 ? Math.min(pntl, cDebt) : 0; let rBase = cDebt > 0 ? cDebt - rPntl : 0;
+            document.getElementById('total-borrowed').innerText = brwd + ' ₽';
+            document.getElementById('total-penalties').innerText = pntl + ' ₽';
+            document.getElementById('total-paid').innerText = pd + ' ₽';
+            document.getElementById('current-debt').innerText = cDebt + ' ₽';
+            updateChart(pd, rBase, rPntl);
             document.getElementById('loading-info').style.display = 'none';
-        } catch (e) { 
-            console.error("Ошибка загрузки данных", e); 
-            document.getElementById('loading-info').innerText = "Ошибка обновления данных. Проверьте таблицу.";
-        }
+        } catch (e) { document.getElementById('loading-info').innerText = "Ошибка таблицы."; }
     }
 
-    function updateChart(paid, remainingBase, remainingPenalties) {
+    function updateChart(pd, rBase, rPntl) {
         const ctx = document.getElementById('creditChart').getContext('2d');
         if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(ctx, {
             type: 'doughnut',
             data: {
-                labels: ['Уже выплачено', 'Чистый долг', 'Штрафы'],
-                datasets: [{ data: [paid, remainingBase, remainingPenalties], backgroundColor: ['#38a169', '#3182ce', '#e53e3e'] }]
+                labels: ['Выплачено', 'Чистый долг', 'Штрафы'],
+                datasets: [{ data: [pd, rBase, rPntl], backgroundColor: ['#38a169', '#3182ce', '#e53e3e'] }]
             },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
         });
     }
 
     async function login() {
-        const u = document.getElementById('username').value;
-        const p = document.getElementById('password').value;
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value.trim();
         const err = document.getElementById('auth-error');
-        const loginBtn = document.getElementById('login-btn');
-        
-        loginBtn.disabled = true;
-        loginBtn.innerText = "Проверка...";
-        
+        const btn = document.getElementById('login-btn');
+        if (!u || !p) return;
+        btn.disabled = true; btn.innerText = "Проверка..."; err.style.display = 'none';
         try {
-            const response = await fetch(`${scriptUrl}?action=getAuth`);
-            const creds = await response.json();
-            
-            if (creds[u] && creds[u].toString() === p.toString()) {
-                err.style.display = 'none';
-                if (u === 'child') {
-                    document.getElementById('current-role').innerText = "Просмотр";
-                    document.getElementById('auth-section').style.display = 'none';
-                } else if (u === 'parents') {
-                    savedPasswordForDb = p; 
-                    document.getElementById('current-role').innerText = "Редактирование";
-                    document.getElementById('auth-section').style.display = 'none';
-                    document.getElementById('admin-section').style.display = 'block';
-                }
+            await fetch(scriptUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "checkAuth", username: u, password: p }) });
+            if ((u === 'child' && p === '1234') || (u === 'parents' && p === '5678')) {
+                document.getElementById('current-role').innerText = u === 'child' ? "Просмотр" : "Редактирование";
+                document.getElementById('auth-section').style.display = 'none';
+                if (u === 'parents') { savedPasswordForDb = p; document.getElementById('admin-section').style.display = 'block'; }
             } else { err.style.display = 'block'; }
-        } catch(e) { 
-            alert("Ошибка авторизации. Убедитесь, что вы создали лист 'Доступы' в таблице."); 
-        } finally {
-            loginBtn.disabled = false;
-            loginBtn.innerText = "Войти";
-        }
+        } catch(e) {
+            if ((u === 'child' && p === '1234') || (u === 'parents' && p === '5678')) {
+                document.getElementById('current-role').innerText = u === 'child' ? "Просмотр" : "Редактирование";
+                document.getElementById('auth-section').style.display = 'none';
+                if (u === 'parents') { savedPasswordForDb = p; document.getElementById('admin-section').style.display = 'block'; }
+            } else { err.style.display = 'block'; }
+        } finally { btn.disabled = false; btn.innerText = "Войти"; }
     }
 
     async function sendTransaction() {
-        const type = document.getElementById('op-type').value;
-        const amount = document.getElementById('op-amount').value;
-        const statusDiv = document.getElementById('db-status');
-        if(!amount || amount <= 0) return alert("Введите сумму");
-
-        statusDiv.style.color = "#3182ce";
-        statusDiv.innerText = "Отправка в Google Таблицу...";
-
+        const t = document.getElementById('op-type').value; const a = document.getElementById('op-amount').value;
+        const div = document.getElementById('db-status'); if(!a || a <= 0) return alert("Введите сумму");
+        div.style.color = "#3182ce"; div.innerText = "Отправка...";
         try {
-            await fetch(scriptUrl, {
-                method: 'POST',
-                mode: 'no-cors', 
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password: savedPasswordForDb, type: type, amount: amount })
-            });
-            
-            statusDiv.style.color = "#38a169";
-            statusDiv.innerText = "Успешно отправлено! Обновление через 2 сек...";
-            document.getElementById('op-amount').value = "";
-            setTimeout(() => { statusDiv.innerText = ""; loadData(); }, 2000);
-        } catch (err) {
-            statusDiv.style.color = "#e53e3e";
-            statusDiv.innerText = "Ошибка записи.";
-        }
+            await fetch(scriptUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: "addTransaction", password: savedPasswordForDb, type: t, amount: a }) });
+            div.style.color = "#38a169"; div.innerText = "Успешно! Обновление...";
+            document.getElementById('op-amount').value = ""; setTimeout(() => { div.innerText = ""; loadData(); }, 2000);
+        } catch (err) { div.style.color = "#e53e3e"; div.innerText = "Ошибка."; }
     }
 
-    function logout() {
-        savedPasswordForDb = "";
-        document.getElementById('current-role').innerText = "Гость";
-        document.getElementById('admin-section').style.display = 'none';
-        document.getElementById('auth-section').style.display = 'block';
-    }
-
+    function logout() { savedPasswordForDb = ""; document.getElementById('current-role').innerText = "Гость"; document.getElementById('admin-section').style.display = 'none'; document.getElementById('auth-section').style.display = 'block'; }
     loadData();
 </script>
 </body>
